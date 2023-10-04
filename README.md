@@ -1,2 +1,2 @@
 # InteractiveInfographics
-Interactive visualization to play with open data. Written in p5. 
+Interactive visualizations to play with open data. Written in p5. 
