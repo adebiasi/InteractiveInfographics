@@ -1,11 +1,12 @@
-let cities = [];
+let countries = [];
 let populations = [];
 let maxPopulation;
 let visualMode;
 let cols, rows;
 let cellWidth, cellHeight;
 let regionList = [];
-let colorAlpha = 0.1;
+
+// TODO create VisualSettings to insert visual variables
 let colorList = [
     [255, 0, 0],
     [0, 255, 0],
@@ -30,7 +31,9 @@ let colorList = [
 ];
 
 let populationGroupSize = 1000000;
-
+const VISUALIZATION_GLOBAL_GRID = 0;
+const VISUALIZATION_REGION_GRIDS = 1;
+const VISUALIZATION_REGION_SPIRALS = 2;
 
 function setup() {
     createCanvas(1800, 1200);
@@ -49,19 +52,19 @@ function setup() {
 function draw() {
     background(220);
 
-
-    if (visualMode == 1 || visualMode == 2) {
+    //TODO use switch case
+    if (visualMode == VISUALIZATION_REGION_GRIDS || visualMode == VISUALIZATION_REGION_SPIRALS) {
         let countryColor = colorList[4];
         fill(color(countryColor[0], countryColor[1], countryColor[2], 100));
         tint(255, 128);
-        for (let i = 0; i < cities.length; i++) {
-            let country = cities[i];
-            if (visualMode == 1) {
-                ellipse(country.x, country.y, country.radius * 2, country.radius * 2);
+        for (let i = 0; i < countries.length; i++) {
+
+            //TODO create draw() in Country
+            let country = countries[i];
+            if (visualMode == VISUALIZATION_REGION_SPIRALS) {
+                ellipse(country.geoPos.x, country.geoPos.y, country.radius * 2, country.radius * 2);
             } else {
-                let flagWidth = country.edge*1.3;
-                let flagHeight = country.edge/1.3;
-                image(country.img_flag, country.x - flagWidth / 2, country.y - flagHeight / 2, flagWidth, flagHeight);
+                image(country.img_flag, country.geoPos.x - country.flagWidth / 2, country.geoPos.y - country.flagHeight / 2, country.flagWidth, country.flagHeight);
             }
             //text(city.name, city.x + 15, city.y);
         }
@@ -84,37 +87,28 @@ function loadData() {
         data.sort((a, b) => b.area - a.area);
         maxArea = data[0].area;
         maxRadius = sqrt(data[0].area);
-        cities = data;//data.slice(0, numCities);
-        for (let i = 0; i < cities.length; i++) {
-            let country = cities[i];
-            let img_flag = loadImage(country.flags.png);
+        // countries = data;//data.slice(0, numCities);
+        for (let i = 0; i < data.length; i++) {
+            let currData = data[i];
+            let country = new Country(currData.area, currData.flags.png, currData.latlng, currData.region)
 
-            country.img_flag = img_flag;
-            country.radius = sqrt(country.area/PI)/40;
-            country.edge = sqrt(country.area)/40;
-            country.x = map(country.latlng[1], -180, 180, 0, width);
-            country.y = map(country.latlng[0], -90, 90, height, 0);
+            countries.push(country);
 
-
-
-                // map(city.radius, 0, maxRadius, 0, 100);
-
-            if (!regionList.includes(country.region)) {
-                regionList.push(country.region);
+            if (!regionList.includes(currData.region)) {
+                regionList.push(currData.region);
             }
 
-            let populationsSize = country.population / populationGroupSize;
+            let populationsSize = currData.population / populationGroupSize;
             for (let i = 0; i < populationsSize; i++) {
-                let population = new Population(country.latlng, country.edge,country.radius,  country.region);
-                population.countryIndex = i;
-                population.countryPopSize = populationsSize;
+                let population = new Population(i, country, populationsSize);
+
                 populations.push(population);
             }
         }
 
         populations.sort(function (a, b) {
-            let nomeA = a.region.toUpperCase();
-            let nomeB = b.region.toUpperCase();
+            let nomeA = a.country.region.toUpperCase();
+            let nomeB = b.country.region.toUpperCase();
             if (nomeA < nomeB) {
                 return -1;
             }
@@ -127,6 +121,7 @@ function loadData() {
         for (let i = 0; i < populations.length; i++) {
             let population = populations[i];
             population.globalIndex = i;
+            population.calculatePositions();
         }
 
         console.log("num points: " + populations.length);
@@ -134,108 +129,92 @@ function loadData() {
 
 }
 
-class Population {
-    constructor(latlng, edge, radius, region) {
-        // this.x_center = map(latlng[1], -180, 180, 0, width);
-        // this.y_center = map(latlng[0], -90, 90, height, 0);
-        [this.x_center, this.y_center] = SpatialOperations.toMap(latlng)
+class Country {
+    constructor(area, flagImagePath, latlng, region) {
+        this.img_flag = loadImage(flagImagePath);
+        this.radius = sqrt(area / PI) / 40;
 
-        this.angle = random(TWO_PI);
-        this.edge = edge;
-
-        this.geoX = this.x_center + cos(this.angle) * random(0, radius);
-        this.geoY = this.y_center + sin(this.angle) * random(0, radius);
-        this.resetGeoPosition();
+        this.geoPos = SpatialOperations.toMap(latlng);
         this.region = region;
-        //this.velocita = 20;
+
+        let edge = sqrt(area) / 40;
+        this.flagWidth = edge * 1.3;
+        this.flagHeight = edge / 1.3;
+    }
+}
+
+class Population {
+    constructor(i, country, populationsSize) {
+
+        this.country = country
         this.changingVisualMode = false;
-        let regIndex = regionList.indexOf(this.region);
+
+        //TODO move to Country
+        let regIndex = regionList.indexOf(this.country.region);
         this.color = colorList[regIndex];
+
+        this.countryIndex = i;
+        this.countryPopSize = populationsSize;
+        //TODO REMOVE
+        this.geoCenterPos = country.geoPos;
     }
 
-    resetGeoPosition() {
-        this.x = this.geoX;
-        this.y = this.geoY;
+    calculatePositions() {
+        let angle = random(TWO_PI);
+        this.geoPos = createVector(this.geoCenterPos.x + cos(angle) * random(0, this.country.radius), this.geoCenterPos.y + sin(angle) * random(0, this.country.radius));
+
+        this.spiralPos = SpatialOperations.placeToSpiral(this.countryIndex, this.countryPopSize, this.geoCenterPos, this.country.radius);
+        this.smallGridPos = SpatialOperations.toGrid(this.countryIndex, smallCols, smallRows, this.country.flagWidth / smallCols, this.country.flagHeight / smallRows, this.geoCenterPos.x + this.country.flagWidth / 2, this.geoCenterPos.y + (this.country.flagHeight / 2), true)
+        this.globalGridPos = SpatialOperations.toGrid(this.globalIndex, cols, rows, cellWidth, cellHeight);
     }
 
     draw() {
 
-        if (visualMode == 1) {
+        //TODO use switch case
+        if (visualMode == VISUALIZATION_REGION_SPIRALS) {
             fill(color(this.color[0], this.color[1], this.color[2], 100));
             noStroke();
-            ellipse(this.x, this.y, geoSize2, geoSize2);
-        } else if (visualMode == 0 || visualMode == 2) {
+            ellipse(this.currPos.x, this.currPos.y, geoSize2, geoSize2);
+        } else if (visualMode == VISUALIZATION_GLOBAL_GRID || visualMode == VISUALIZATION_REGION_GRIDS) {
             fill(color(this.color[0], this.color[1], this.color[2], 150));
             if (this.changingVisualMode) {
                 noStroke();
             } else {
                 stroke(color(255, 255, 255, 100));
             }
-            if (visualMode == 0) {
-                rect(this.x, this.y, cellWidth, cellHeight);
+            if (visualMode == VISUALIZATION_GLOBAL_GRID) {
+                rect(this.currPos.x, this.currPos.y, cellWidth, cellHeight);
             } else {
-                // rect(this.x - this.edge / 2, this.y - this.edge / 2+3*geoSize, geoSize, geoSize);
-                rect(this.x, this.y , geoSize, geoSize);
-
+                rect(this.currPos.x, this.currPos.y, geoSize, geoSize);
             }
         }
 
     }
 
     update() {
+        let targetPos;
 
-        if (visualMode == 1) {
-
-            if (this.changingVisualMode) {
-                [this.x, this.y] = SpatialOperations.moveToTarget(createVector(this.x, this.y), createVector(this.geoX, this.geoY), 25);
-                if (this.geoX == this.x && this.geoY == this.y) {
-                    this.changingVisualMode = false;
-                }
-            } else {
-
-                [this.x, this.y] = SpatialOperations.praceToSpiral(this.countryIndex, this.countryPopSize, createVector(this.x_center, this.y_center), this.radius);
-                /*
-                let xOffset = random(-1, 1);
-                let yOffset = random(-1, 1);
-                let new_x = this.x + xOffset;
-                let new_y = this.y + yOffset;
-
-                let distanceFromCenter = dist(this.x_center, this.y_center, new_x, new_y);
-                if (distanceFromCenter < this.size) {
-                    this.x = new_x;
-                    this.y = new_y;
-                }*/
-            }
-        } else if (visualMode == 0) {
-            let [newX, newY] = SpatialOperations.toGrid(this.globalIndex, cols, rows, cellWidth, cellHeight)
-
-            if (this.changingVisualMode) {
-                [this.x, this.y] = SpatialOperations.moveToTarget(createVector(this.x, this.y), createVector(newX, newY), 45);
-                if (this.geoX == this.x && this.geoY == this.y) {
-                    this.changingVisualMode = false;
-                }
-            } else {
-                this.x = newX;
-                this.y = newY;
-            }
-        } else if (visualMode == 2) {
-            // let [newX, newY] = SpatialOperations.toGrid(this.countryIndex, smallCols, smallRows, this.edge / smallCols, this.edge / smallRows, this.x_center, this.y_center)
-
-            let flagWidth = this.edge*1.3;
-            let flagHeight = this.edge/1.3;
-            let [newX, newY] = SpatialOperations.toGrid(this.countryIndex, smallCols, smallRows, flagWidth / smallCols, flagHeight / smallRows, this.x_center+flagWidth/2, this.y_center+(flagHeight/2), true)
-            // let [newX, newY] = SpatialOperations.toGrid(this.countryIndex, smallCols, smallRows, flagWidth / smallCols, flagHeight / smallRows, this.x_center-flagWidth/2, this.y_center-(flagHeight/2), false)
-
-            if (this.changingVisualMode) {
-                [this.x, this.y] = SpatialOperations.moveToTarget(createVector(this.x, this.y), createVector(newX, newY), 25);
-                if (this.geoX == this.x && this.geoY == this.y) {
-                    this.changingVisualMode = false;
-                }
-            } else {
-                this.x = newX;
-                this.y = newY;
-            }
+        switch (visualMode) {
+            case VISUALIZATION_REGION_SPIRALS:
+                targetPos = this.spiralPos.copy();
+                break
+            case VISUALIZATION_GLOBAL_GRID:
+                targetPos = this.globalGridPos.copy();
+                break
+            case VISUALIZATION_REGION_GRIDS:
+                targetPos = this.smallGridPos.copy();
+                break
         }
+
+        if (this.changingVisualMode) {
+            this.currPos = SpatialOperations.moveToTarget(this.currPos, targetPos, 25);
+            if (this.currPos == targetPos) {
+                this.changingVisualMode = false;
+            }
+        } else {
+            this.currPos = targetPos;
+        }
+
 
     }
 
