@@ -7,6 +7,10 @@ Groups of 1 million people are graphically represented as a circle or a square, 
 
 It is possible to change the visulization using the mouse button.
 
+## try it
+
+https://adebiasi.github.io/InteractiveInfographics/
+
 ## Animations
 
 ![https://github.com/adebiasi/LearnMovementWithNeuroevolution/blob/main/imgs/RobotEye.gif](https://github.com/adebiasi/InteractiveInfographics/blob/main/gif/sample.gif)
