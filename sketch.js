@@ -155,56 +155,58 @@ class Population {
 
         this.countryIndex = i;
         this.countryPopSize = populationsSize;
-        //TODO REMOVE
-        this.geoCenterPos = country.geoPos;
     }
 
     calculatePositions() {
-        let angle = random(TWO_PI);
-        this.geoPos = createVector(this.geoCenterPos.x + cos(angle) * random(0, this.country.radius), this.geoCenterPos.y + sin(angle) * random(0, this.country.radius));
 
-        this.spiralPos = SpatialOperations.placeToSpiral(this.countryIndex, this.countryPopSize, this.geoCenterPos, this.country.radius);
-        this.smallGridPos = SpatialOperations.toGrid(this.countryIndex, smallCols, smallRows, this.country.flagWidth / smallCols, this.country.flagHeight / smallRows, this.geoCenterPos.x + this.country.flagWidth / 2, this.geoCenterPos.y + (this.country.flagHeight / 2), true)
-        this.globalGridPos = SpatialOperations.toGrid(this.globalIndex, cols, rows, cellWidth, cellHeight);
+        this.targetPositions = {};
+
+        let angle = random(TWO_PI);
+        this.geoPos = createVector(this.country.geoPos.x + cos(angle) * random(0, this.country.radius), this.country.geoPos.y + sin(angle) * random(0, this.country.radius));
+
+        let spiralPos = SpatialOperations.placeToSpiral(this.countryIndex, this.countryPopSize, this.country.geoPos, this.country.radius);
+        this.targetPositions[VISUALIZATION_REGION_SPIRALS] = spiralPos;
+
+        //TODO use fixed cell size
+        let smallGridPos = SpatialOperations.toGrid(this.countryIndex, smallCols, smallRows, this.country.flagWidth / smallCols, this.country.flagHeight / smallRows, this.country.geoPos.x + this.country.flagWidth / 2, this.country.geoPos.y + (this.country.flagHeight / 2), true)
+        this.targetPositions[VISUALIZATION_REGION_GRIDS] = smallGridPos;
+
+        let globalGridPos = SpatialOperations.toGrid(this.globalIndex, cols, rows, cellWidth, cellHeight);
+        this.targetPositions[VISUALIZATION_GLOBAL_GRID] = globalGridPos;
     }
 
     draw() {
 
-        //TODO use switch case
-        if (visualMode == VISUALIZATION_REGION_SPIRALS) {
-            fill(color(this.color[0], this.color[1], this.color[2], 100));
-            noStroke();
-            ellipse(this.currPos.x, this.currPos.y, geoSize2, geoSize2);
-        } else if (visualMode == VISUALIZATION_GLOBAL_GRID || visualMode == VISUALIZATION_REGION_GRIDS) {
-            fill(color(this.color[0], this.color[1], this.color[2], 150));
-            if (this.changingVisualMode) {
+        switch (visualMode) {
+            case VISUALIZATION_REGION_SPIRALS:
+                fill(color(this.color[0], this.color[1], this.color[2], 100));
                 noStroke();
-            } else {
-                stroke(color(255, 255, 255, 100));
-            }
-            if (visualMode == VISUALIZATION_GLOBAL_GRID) {
+                ellipse(this.currPos.x, this.currPos.y, geoSize2, geoSize2);
+                break;
+            case VISUALIZATION_GLOBAL_GRID:
+                fill(color(this.color[0], this.color[1], this.color[2], 150));
+                if (this.changingVisualMode) {
+                    noStroke();
+                } else {
+                    stroke(color(255, 255, 255, 100));
+                }
                 rect(this.currPos.x, this.currPos.y, cellWidth, cellHeight);
-            } else {
-                rect(this.currPos.x, this.currPos.y, geoSize, geoSize);
-            }
+                break;
+            case VISUALIZATION_REGION_GRIDS:
+                fill(color(this.color[0], this.color[1], this.color[2], 150));
+                if (this.changingVisualMode) {
+                    noStroke();
+                } else {
+                    stroke(color(255, 255, 255, 100));
+                }
+                    rect(this.currPos.x, this.currPos.y, geoSize, geoSize);
+                break;
         }
 
     }
 
     update() {
-        let targetPos;
-
-        switch (visualMode) {
-            case VISUALIZATION_REGION_SPIRALS:
-                targetPos = this.spiralPos.copy();
-                break
-            case VISUALIZATION_GLOBAL_GRID:
-                targetPos = this.globalGridPos.copy();
-                break
-            case VISUALIZATION_REGION_GRIDS:
-                targetPos = this.smallGridPos.copy();
-                break
-        }
+        let targetPos = this.targetPositions[visualMode].copy();
 
         if (this.changingVisualMode) {
             this.currPos = SpatialOperations.moveToTarget(this.currPos, targetPos, 25);
@@ -214,8 +216,6 @@ class Population {
         } else {
             this.currPos = targetPos;
         }
-
-
     }
 
 }
