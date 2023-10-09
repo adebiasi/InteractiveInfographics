@@ -159,7 +159,7 @@ class Population {
 
     calculatePositions() {
 
-        this.targetPositions = {};
+        this.targetPositions = [];
 
         let angle = random(TWO_PI);
         this.geoPos = createVector(this.country.geoPos.x + cos(angle) * random(0, this.country.radius), this.country.geoPos.y + sin(angle) * random(0, this.country.radius));
@@ -209,7 +209,7 @@ class Population {
         let targetPos = this.targetPositions[visualMode].copy();
 
         if (this.changingVisualMode) {
-            this.currPos = SpatialOperations.moveToTarget(this.currPos, targetPos, 25);
+            this.currPos = SpatialOperations.moveToTarget(this.currPos, targetPos, 75);
             if (this.currPos == targetPos) {
                 this.changingVisualMode = false;
             }
@@ -229,5 +229,11 @@ function mousePressed() {
     for (let i = 0; i < populations.length; i++) {
         let population = populations[i];
         population.changingVisualMode = true;
+    }
+}
+
+function keyPressed() {
+    if (key === 'R' || key === 'r') {
+        saveGif('mySketch', 4);
     }
 }
