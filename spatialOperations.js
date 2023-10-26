@@ -10,7 +10,7 @@ class SpatialOperations {
         if (!inverse) {
             return createVector(offsetX + i * cellWidth, offsetY + j * cellHeight);
         } else {
-            return createVector(offsetX - i * cellWidth-cellWidth, offsetY - j * cellHeight-cellHeight);
+            return createVector(offsetX - i * cellWidth - cellWidth, offsetY - j * cellHeight - cellHeight);
         }
     }
 
@@ -39,12 +39,17 @@ class SpatialOperations {
         let radius = (i / (TWO_PI * 2));
         // let x = centerX + radius * cos(angle);
         //  let y = centerY + radius * sin(angle);
-        let x = center.x + radius * cos(i * angleIncrement);
-        let y = center.y + radius * sin(i * angleIncrement);
+        let x = radius * cos(i * angleIncrement);
+        let y = radius * sin(i * angleIncrement);
+
+        if (center != null) {
+            x = center.x + x;
+            y = center.y + y;
+        }
         //     ellipse(x, y, 5, 5);
         //    angle += angleIncrement; // Increment the angle to evenly distribute the circles.
         //  }
-        return createVector(x,y);
+        return createVector(x, y);
         //  }
     }
 }

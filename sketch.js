@@ -34,10 +34,20 @@ let populationGroupSize = 1000000;
 const VISUALIZATION_GLOBAL_GRID = 0;
 const VISUALIZATION_REGION_GRIDS = 1;
 const VISUALIZATION_REGION_SPIRALS = 2;
+let changingVisualMode;
+let canvas;
+let myMap;
+
+// Lets put all our map options in a single object
+const options = {
+    lat: 0,
+    lng: 0,
+    zoom: 0,
+    style: "http://{s}.tile.osm.org/{z}/{x}/{y}.png"
+}
 
 function setup() {
-    createCanvas(1800, 1200);
-    loadData();
+    canvas = createCanvas(1800, 1200);
     visualMode = 1;
     cols = 100;
     rows = 100;
@@ -47,33 +57,60 @@ function setup() {
     cellHeight = 15;
     geoSize = 3;
     geoSize2 = 7;
+    const mappa = new Mappa('Leaflet');
+    // Create a tile map with the options declared
+    myMap = mappa.tileMap(options);
+    myMap.overlay(canvas);
+    loadData();
 }
 
+let loadedData = false;
+let firstDraw = true;
+
 function draw() {
-    background(220);
 
-    //TODO use switch case
-    if (visualMode == VISUALIZATION_REGION_GRIDS || visualMode == VISUALIZATION_REGION_SPIRALS) {
-        let countryColor = colorList[4];
-        fill(color(countryColor[0], countryColor[1], countryColor[2], 100));
-        tint(255, 128);
+
+    if (loadedData) {
+
         for (let i = 0; i < countries.length; i++) {
-
-            //TODO create draw() in Country
-            let country = countries[i];
-            if (visualMode == VISUALIZATION_REGION_SPIRALS) {
-                ellipse(country.geoPos.x, country.geoPos.y, country.radius * 2, country.radius * 2);
-            } else {
-                image(country.img_flag, country.geoPos.x - country.flagWidth / 2, country.geoPos.y - country.flagHeight / 2, country.flagWidth, country.flagHeight);
-            }
-            //text(city.name, city.x + 15, city.y);
+            countries[i].updateGeoPosition();
         }
-        tint(255);
-    }
 
-    for (let i = 0; i < populations.length; i++) {
-        populations[i].update();
-        populations[i].draw();
+        for (let i = 0; i < populations.length; i++) {
+            populations[i].updateGeoPositions();
+        }
+
+        // if (changingVisualMode || firstDraw) {
+
+        let currChangingVisualMode = false
+        for (let i = 0; i < populations.length; i++) {
+            populations[i].updateCurrPos();
+            currChangingVisualMode = currChangingVisualMode || populations[i].changingVisualMode;
+        }
+
+
+        changingVisualMode = currChangingVisualMode;
+        firstDraw = false;
+        // }
+        console.log("draw")
+        clear();
+        if (visualMode == VISUALIZATION_REGION_GRIDS || visualMode == VISUALIZATION_REGION_SPIRALS) {
+            let countryColor = colorList[4];
+            fill(color(countryColor[0], countryColor[1], countryColor[2], 100));
+            tint(255, 128);
+            for (let i = 0; i < countries.length; i++) {
+                countries[i].draw(visualMode);
+            }
+            tint(255);
+        }
+
+        for (let i = 0; i < populations.length; i++) {
+            populations[i].draw();
+        }
+        // if (currChangingVisualMode || !loadedData) {
+        // } else {
+        //     noLoop()
+        // }
     }
 }
 
@@ -90,25 +127,27 @@ function loadData() {
         // countries = data;//data.slice(0, numCities);
         for (let i = 0; i < data.length; i++) {
             let currData = data[i];
-            let country = new Country(currData.area, currData.flags.png, currData.latlng, currData.region)
-
-            countries.push(country);
 
             if (!regionList.includes(currData.region)) {
                 regionList.push(currData.region);
             }
 
+            let country = new Country(currData.area, currData.flags.png, currData.latlng, currData.region)
+
+            countries.push(country);
+
+
             let populationsSize = currData.population / populationGroupSize;
-            for (let i = 0; i < populationsSize; i++) {
-                let population = new Population(i, country, populationsSize);
+            for (let j = 0; j < populationsSize; j++) {
+                let population = new Population(j, i, populationsSize);
 
                 populations.push(population);
             }
         }
 
         populations.sort(function (a, b) {
-            let nomeA = a.country.region.toUpperCase();
-            let nomeB = b.country.region.toUpperCase();
+            let nomeA = countries[a.countryIndex].region.toUpperCase();
+            let nomeB = countries[b.countryIndex].region.toUpperCase();
             if (nomeA < nomeB) {
                 return -1;
             }
@@ -119,11 +158,10 @@ function loadData() {
         });
 
         for (let i = 0; i < populations.length; i++) {
-            let population = populations[i];
-            population.globalIndex = i;
-            population.calculatePositions();
+            populations[i].globalIndex = i;
+            populations[i].calculatePositions();
         }
-
+        loadedData = true;
         console.log("num points: " + populations.length);
     });
 
@@ -134,45 +172,61 @@ class Country {
         this.img_flag = loadImage(flagImagePath);
         this.radius = sqrt(area / PI) / 40;
 
-        this.geoPos = SpatialOperations.toMap(latlng);
+        this.latlng = (latlng);
+
         this.region = region;
+        this.regionColor = colorList[regionList.indexOf(region)];
 
         let edge = sqrt(area) / 40;
         this.flagWidth = edge * 1.3;
         this.flagHeight = edge / 1.3;
     }
+
+    draw(visualMode) {
+        if (visualMode == VISUALIZATION_REGION_SPIRALS) {
+            ellipse(this.geoPos.x, this.geoPos.y, this.radius * 2, this.radius * 2);
+        } else {
+            image(this.img_flag, this.geoPos.x - this.flagWidth / 2, this.geoPos.y - this.flagHeight / 2, this.flagWidth, this.flagHeight);
+        }
+    }
+
+
+    updateGeoPosition() {
+        let geoPos = myMap.latLngToPixel(this.latlng[0], this.latlng[1]);
+        this.geoPos = createVector(geoPos.x, geoPos.y);
+    }
 }
 
 class Population {
-    constructor(i, country, populationsSize) {
+    constructor(i, countryIndex, populationsSize) {
 
-        this.country = country
         this.changingVisualMode = false;
+        this.countryIndex = countryIndex;
+        this.color = countries[countryIndex].regionColor;
 
-        //TODO move to Country
-        let regIndex = regionList.indexOf(this.country.region);
-        this.color = colorList[regIndex];
-
-        this.countryIndex = i;
+        this.countryPopIndex = i;
         this.countryPopSize = populationsSize;
     }
 
     calculatePositions() {
 
         this.targetPositions = [];
+        this.spiralPos = SpatialOperations.placeToSpiral(this.countryPopIndex, this.countryPopSize, null, countries[this.countryIndex].radius);
+        this.smallGridPos = SpatialOperations.toGrid(this.countryPopIndex, smallCols, smallRows, countries[this.countryIndex].flagWidth / smallCols, countries[this.countryIndex].flagHeight / smallRows, countries[this.countryIndex].flagWidth / 2, (countries[this.countryIndex].flagHeight / 2), true)
+        this.globalGridPos = SpatialOperations.toGrid(this.globalIndex, cols, rows, cellWidth, cellHeight);
+        this.targetPositions[VISUALIZATION_GLOBAL_GRID] = this.globalGridPos;
 
-        let angle = random(TWO_PI);
-        this.geoPos = createVector(this.country.geoPos.x + cos(angle) * random(0, this.country.radius), this.country.geoPos.y + sin(angle) * random(0, this.country.radius));
+    }
 
-        let spiralPos = SpatialOperations.placeToSpiral(this.countryIndex, this.countryPopSize, this.country.geoPos, this.country.radius);
-        this.targetPositions[VISUALIZATION_REGION_SPIRALS] = spiralPos;
+    updateGeoPositions() {
 
-        //TODO use fixed cell size
-        let smallGridPos = SpatialOperations.toGrid(this.countryIndex, smallCols, smallRows, this.country.flagWidth / smallCols, this.country.flagHeight / smallRows, this.country.geoPos.x + this.country.flagWidth / 2, this.country.geoPos.y + (this.country.flagHeight / 2), true)
-        this.targetPositions[VISUALIZATION_REGION_GRIDS] = smallGridPos;
+        let countryPos = countries[this.countryIndex].geoPos;
+        let geoSpiralPos = p5.Vector.add(countryPos, this.spiralPos);
+        this.targetPositions[VISUALIZATION_REGION_SPIRALS] = geoSpiralPos;
 
-        let globalGridPos = SpatialOperations.toGrid(this.globalIndex, cols, rows, cellWidth, cellHeight);
-        this.targetPositions[VISUALIZATION_GLOBAL_GRID] = globalGridPos;
+        let geoSmallGridPos = p5.Vector.add(countryPos, this.smallGridPos)
+        this.targetPositions[VISUALIZATION_REGION_GRIDS] = geoSmallGridPos;
+
     }
 
     draw() {
@@ -199,18 +253,21 @@ class Population {
                 } else {
                     stroke(color(255, 255, 255, 100));
                 }
-                    rect(this.currPos.x, this.currPos.y, geoSize, geoSize);
+                rect(this.currPos.x, this.currPos.y, geoSize, geoSize);
                 break;
         }
 
     }
 
-    update() {
+    updateCurrPos() {
         let targetPos = this.targetPositions[visualMode].copy();
 
         if (this.changingVisualMode) {
+            if (this.currPos == null) {
+                this.currPos = targetPos;
+            }
             this.currPos = SpatialOperations.moveToTarget(this.currPos, targetPos, 75);
-            if (this.currPos == targetPos) {
+            if (this.currPos.x == targetPos.x && this.currPos.y == targetPos.y) {
                 this.changingVisualMode = false;
             }
         } else {
@@ -220,20 +277,30 @@ class Population {
 
 }
 
+setTargetPos()
+{
+
+}
+
 function mousePressed() {
-    visualMode = (visualMode + 1) % 3;
 
-    changingVisualMode = true;
-    console.log("visualMode:" + visualMode);
-
-    for (let i = 0; i < populations.length; i++) {
-        let population = populations[i];
-        population.changingVisualMode = true;
-    }
 }
 
 function keyPressed() {
     if (key === 'R' || key === 'r') {
         saveGif('mySketch', 4);
+    }
+    if (keyCode === 32) {
+        visualMode = (visualMode + 1) % 3;
+
+        changingVisualMode = true;
+        // redraw()
+        // loop()
+        console.log("visualMode:" + visualMode);
+
+        for (let i = 0; i < populations.length; i++) {
+            let population = populations[i];
+            population.changingVisualMode = true;
+        }
     }
 }
