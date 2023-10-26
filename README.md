@@ -17,8 +17,9 @@ https://adebiasi.github.io/InteractiveInfographics/
 
 ## Future improvements
 
+- [x] Apply geographic map
 - [ ] Improve performances
 - [ ] Use better colors
 - [ ] Add further visualizations:
   - [ ] each country is a grid next to each other
-- [ ] Create a class dedicated to the settigns
+- [ ] Create a class dedicated to the settings
