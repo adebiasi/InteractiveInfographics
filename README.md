@@ -5,9 +5,9 @@ Data taken from https://restcountries.com/v3.1/all.
 
 Groups of 1 million people are graphically represented as a circle or a square, depending on the chosen visualization.
 
-It is possible to change the visulization using the mouse button.
+It is possible to change the visulization using the SPACE button.
 
-## try it
+## Try it
 
 https://adebiasi.github.io/InteractiveInfographics/
 
